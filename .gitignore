@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.idea/
+.vscode/
+
+# Large media (uncomment to track sample videos)
+# *.mp4
+# *.avi
+# *.mkv
+
+# Model weights / outputs (if generated locally)
+*.pt
+*.pth
+*.ckpt
+output/
+runs/
