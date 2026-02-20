@@ -1,0 +1,142 @@
+# =============================================================================
+# Requirements for Identity-Aware Segmentation with SAM 3 & InsightFace
+# =============================================================================
+# สำหรับ RTX 6000 (48GB VRAM) - CUDA 12.x Compatible
+# =============================================================================
+
+# =============================================================================
+# Core ML Framework - PyTorch 2.7+ with CUDA 12.x support
+# =============================================================================
+# torch 2.7.0 รองรับ CUDA 12.x และมี torch.compile สำหรับ optimization
+# ใช้ bfloat16 ได้บน RTX 6000 (compute capability 8.9)
+torch==2.7.0
+torchvision>=0.18.0
+torchaudio>=2.7.0
+
+# =============================================================================
+# Face Recognition & Detection
+# =============================================================================
+# InsightFace สำหรับ face detection และ face embedding extraction
+# ใช้ RetinaFace สำหรับ detection และ ArcFace สำหรับ recognition
+insightface>=0.7.3
+
+# ONNX Runtime GPU สำหรับรันโมเดล InsightFace บน GPU
+# ใช้ onnxruntime-gpu เวอร์ชันที่รองรับ CUDA 12.x
+onnxruntime-gpu>=1.17.0
+
+# ONNX สำหรับโมเดล conversion
+onnx>=1.15.0
+
+# =============================================================================
+# Segmentation - SAM 3 (ติดตั้งผ่าน git clone แยก)
+# =============================================================================
+# SAM 3 จะติดตั้งผ่าน: pip install -e ".[notebooks]"
+# ไม่ต้องระบุใน requirements.txt เพราะติดตั้งจาก source
+
+# =============================================================================
+# Image & Video Processing
+# =============================================================================
+# OpenCV สำหรับ image/video I/O และ basic processing
+opencv-python>=4.9.0
+opencv-contrib-python>=4.9.0
+
+# Pillow สำหรับ image manipulation
+Pillow>=10.0.0
+
+# NumPy สำหรับ numerical operations
+numpy>=1.26.0,<2.0.0
+
+# ImageIO สำหรับ video reading/writing
+imageio>=2.34.0
+imageio-ffmpeg>=0.4.9
+
+# =============================================================================
+# UI Framework
+# =============================================================================
+# Gradio 4.x สำหรับสร้าง web interface
+# รองรับ image/video upload, progress bars, และ interactive components
+gradio>=4.0.0,<5.0.0
+
+# =============================================================================
+# Visualization & Utilities
+# =============================================================================
+# Matplotlib สำหรับ plotting และ visualization
+matplotlib>=3.8.0
+
+# Seaborn สำหรับ advanced visualization
+seaborn>=0.13.0
+
+# Scikit-learn สำหรับ metrics และ utilities
+scikit-learn>=1.4.0
+
+# SciPy สำหรับ scientific computing
+scipy>=1.12.0
+
+# =============================================================================
+# HuggingFace Ecosystem
+# =============================================================================
+# HuggingFace Hub สำหรับ download models และ authentication
+huggingface-hub>=0.22.0
+
+# Transformers สำหรับ text models (ถ้าต้องการใช้ CLIP หรือ text encoder)
+transformers>=4.40.0
+
+# Accelerate สำหรับ distributed inference และ optimization
+accelerate>=0.29.0
+
+# =============================================================================
+# Video Processing Utilities
+# =============================================================================
+# TQDM สำหรับ progress bars
+# ใช้แสดงความคืบหน้าในการประมวลผล video frame-by-frame
+tqdm>=4.66.0
+
+# Decord สำหรับ efficient video loading (optional แต่แนะนำ)
+decord>=0.6.0
+
+# Av (PyAV) สำหรับ video encoding/decoding
+av>=11.0.0
+
+# =============================================================================
+# Data Handling
+# =============================================================================
+# Pandas สำหรับ data manipulation
+pandas>=2.2.0
+
+# =============================================================================
+# Development & Debugging
+# =============================================================================
+# Jupyter สำหรับ notebook development
+jupyter>=1.0.0
+ipython>=8.22.0
+
+# =============================================================================
+# Optional: Performance Optimization
+# =============================================================================
+# Flash Attention สำหรับ memory-efficient attention (ถ้า SAM 3 รองรับ)
+# flash-attn>=2.5.0  # ติดตั้งแยกเพราะต้อง compile
+
+# XFormers สำหรับ memory-efficient transformers
+# xformers>=0.0.25  # optional
+
+# =============================================================================
+# Installation Instructions
+# =============================================================================
+# 1. สร้าง conda environment:
+#    conda create -n sam3-face python=3.10
+#    conda activate sam3-face
+#
+# 2. ติดตั้ง PyTorch with CUDA 12.1:
+#    pip install torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+#
+# 3. ติดตั้ง requirements:
+#    pip install -r requirements.txt
+#
+# 4. Clone และติดตั้ง SAM 3:
+#    git clone https://github.com/facebookresearch/sam3.git
+#    cd sam3
+#    pip install -e ".[notebooks]"
+#
+# 5. Download InsightFace models (auto-download ครั้งแรกที่รัน)
+#
+# =============================================================================
