@@ -3,18 +3,25 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red)
 ![SAM 3](https://img.shields.io/badge/Meta-SAM_3-blueviolet)
-![InsightFace](https://img.shields.io/badge/InsightFace-Buffalo__L-success)
+![LoRA](https://img.shields.io/badge/LoRA-Fine--tuning-green)
 ![Hardware](https://img.shields.io/badge/Hardware-RTX_6000-orange)
 
-This project is an intelligent **Text-to-Segment** system designed to overcome the limitations of standard segmentation models. By bridging **Computer Vision** and **Language Models**, the system can identify specific individuals (Identity) and understand contextual ownership (Possession) within images or videos of the K-pop group IVE.
+This project is an intelligent **Text-to-Segment** system designed to overcome the limitations of standard segmentation models. By **fine-tuning SAM 3** with custom annotations, the system can identify specific individuals (Identity) and understand contextual ownership (Possession) within images or videos of the K-pop group IVE.
 
 ---
 
-## 💡 The Core Concepts & "Hidden Agenda"
+## 💡 The Core Concepts
 
 This project goes beyond simply drawing bounding boxes around generic "people". It is engineered to address two advanced challenges:
 
-1. **Identity Awareness (Beyond Generic Objects):** Base models like SAM 3 understand the concept of a "Person," but lack knowledge of specific entities like "Wonyoung." Instead of performing a resource-heavy full model fine-tuning, this project implements a **Vision Retrieval-Augmented Generation (RAG)** approach. We utilize **InsightFace** to extract Face Embeddings (512-dimensional vectors) of IVE members to serve as a knowledge base. This maps specific names to facial features before feeding the precise bounding box to SAM 3 for pixel-level segmentation.
+1. **Identity Awareness (Fine-tuned SAM 3):** 
+   Base models like SAM 3 understand the concept of a "Person," but lack knowledge of specific entities like "Wonyoung." 
+   
+   **Our Approach:** Fine-tune SAM 3 ด้วย **LoRA (Low-Rank Adaptation)** บน dataset ที่เราสร้างขึ้นเองโดยใช้ **X-AnyLabeling** สำหรับการ annotate รูปภาพ
+   - ใช้ X-AnyLabeling + SAM ViT-H สร้าง mask คุณภาพสูง
+   - Export เป็น COCO Format
+   - Fine-tune SAM 3 ด้วย LoRA เฉพาะ Prompt Encoder และ Mask Decoder
+
 2. **Possession & Association (Contextual Understanding):**
    The system is capable of handling complex prompts such as *"Wonyoung's shirt"*. This is achieved through a two-step pipeline:
    - **Step 1:** Locate the target identity (e.g., Wonyoung) and generate the identity mask.
@@ -24,11 +31,12 @@ This project goes beyond simply drawing bounding boxes around generic "people". 
 
 ## 🛠️ Architecture & Tech Stack
 
-- **Segmentation Engine:** [Meta SAM 3](https://github.com/facebookresearch/sam3) (via Hugging Face)
-- **Identity Knowledge Base:** [InsightFace](https://github.com/deepinsight/insightface) (buffalo_l model)
+- **Segmentation Engine:** [Meta SAM 3](https://github.com/facebookresearch/segment-anything) (via Hugging Face) + LoRA Fine-tuning
+- **Data Annotation:** [X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling) with SAM ViT-H
+- **Training Framework:** PyTorch + PEFT (LoRA)
 - **UI & Visualization:** Gradio
-- **Environment:** Entire pipeline executed within a single `main.ipynb` notebook.
-- **Hardware Optimization:** Fully optimized for **NVIDIA RTX 6000 (48GB VRAM)** using CUDA execution providers.
+- **Environment:** Entire pipeline executed within `main_finetune.ipynb` notebook
+- **Hardware Optimization:** Fully optimized for **NVIDIA RTX 6000 (48GB VRAM)**
 
 ---
 
@@ -36,72 +44,146 @@ This project goes beyond simply drawing bounding boxes around generic "people". 
 
 ```text
 SEGMENTATION_IVE/
-├── main.ipynb                   # Main Jupyter Notebook (Core Logic & UI)
-├── Dataset/                     # Solo images of IVE members for Vector DB (180 total)
+├── main_finetune.ipynb          # Main Jupyter Notebook (Fine-tuning + Inference + UI)
+├── Dataset/                     # Solo images of IVE members (180 total)
 │   ├── An_Yujin/               
 │   ├── Jang_Wonyoung/          
 │   ├── Kim_Gaeul/              
 │   ├── Kim_Jiwon/              
 │   ├── Lee_Hyunseo/            
 │   └── Naoi_Rei/               
+├── data/                        # Generated during setup
+│   ├── images/                  # Annotated images
+│   ├── masks/                   # Generated masks
+│   └── annotations.json         # COCO format annotations
+├── models/                      # Saved fine-tuned models
+├── outputs/                     # Output videos/images
 ├── requirements.txt             # Python dependencies
-├── PROJECT_PLAN.md              # Development roadmap & architecture
-├── PLAN.md                      # Detailed logic for Identity & Possession tasks
+├── ANNOTATION_GUIDE.md          # Guide for X-AnyLabeling
+├── PLAN.md                      # Detailed logic & roadmap
 └── README.md                    # This file
-🚀 Installation & Setup (Using .venv)
-It is highly recommended to isolate the project dependencies using a Python virtual environment (.venv).
+```
 
-Clone the repository and navigate to the project directory:
+---
 
-Bash
-git clone <your-repo-url>
-cd SEGMENTATION_IVE
-Create and activate the virtual environment:
+## 🚀 Installation & Setup (Using .venv)
 
-Bash
+### 1. Create and activate the virtual environment:
+
+```bash
 # Create the virtual environment
 python -m venv .venv
 
 # Activate the virtual environment
 # On Windows:
 .venv\Scripts\activate
+
 # On Linux/macOS:
 source .venv/bin/activate
-Install Dependencies:
-With your .venv activated, install the required packages:
+```
 
-Bash
+### 2. Install Dependencies:
+
+```bash
 pip install -r requirements.txt
-Hugging Face Authentication (Required for SAM 3):
-You must request access to the facebook/sam3 repository on Hugging Face. Once approved, log in via the CLI using your access token:
+```
 
-Bash
+### 3. Hugging Face Authentication (Required for SAM):
+
+```bash
 huggingface-cli login
-Prepare the Dataset:
-Ensure the Dataset/ directory is fully populated with member images so the system can accurately build the Face Embedding Database.
+```
 
-💻 Usage
-Open main.ipynb within your activated .venv environment.
+---
 
-Run the cells sequentially:
+## 📝 Data Annotation with X-AnyLabeling
 
-Environment Setup: Load libraries and verify GPU (RTX 6000) availability.
+### Step 1: Install X-AnyLabeling
 
-Build Identity Database: The system will process images in Dataset/ to extract and store Face Embeddings.
+```bash
+git clone https://github.com/CVHub520/X-AnyLabeling.git
+cd X-AnyLabeling
+pip install -r requirements.txt
+python anylabeling/app.py
+```
 
-Initialize Models: Load SAM 3 and InsightFace into VRAM.
+### Step 2: Annotate Images
 
-Launch Gradio UI: Run the final cell to start the web interface.
+1. **Open Directory**: เลือกโฟลเดอร์รูปภาพ (e.g., `Dataset/Jang_Wonyoung/`)
+2. **Enable SAM**: Click `AI-Powered` → `Segment Anything (SAM)` → เลือก `sam_vit_h`
+3. **Create Masks**: Click บนวัตถุเพื่อสร้าง mask อัตโนมัติ
+4. **Label**: กำหนด label name:
+   - `Wonyoung` - คลุมทั้งตัว
+   - `Wonyoung_shirt` - เฉพาะเสื้อ
+5. **Export**: Click `Export` → `COCO` → บันทึกเป็น `data/annotations.json`
 
-Interact with the UI:
+ดูรายละเอียดเพิ่มเติมใน [ANNOTATION_GUIDE.md](ANNOTATION_GUIDE.md)
 
-Upload an image or a video frame.
+---
 
-Enter a target name or a possession-based prompt (e.g., "Wonyoung" or "Wonyoung's shirt").
+## 💻 Usage
 
-View the generated mask, annotated bounding boxes, and similarity scores.
+### Option 1: Jupyter Notebook (Recommended)
 
-⚠️ Notes & Limitations
-Possession segmentation relies on the overlap between the Identity Bounding Box and the Object Text Prompt. Accuracy depends heavily on the clarity and angle of the source image.
+```bash
+jupyter notebook main_finetune.ipynb
+```
 
-If InsightFace cannot detect a face (e.g., subject is facing away or heavily blurred), the system will default to "Unknown" and cannot accurately segment based on specific identities.
+Run cells sequentially:
+1. **Environment Setup**: ติดตั้ง dependencies และ verify GPU
+2. **Data Preparation**: โหลด COCO annotations
+3. **Model Fine-tuning**: Fine-tune SAM 3 with LoRA
+4. **Inference**: ทดสอบกับรูปภาพหรือวิดีโอ
+5. **Gradio UI**: Launch web interface
+
+### Option 2: Command Line (ถ้ามีเพิ่มเติม)
+
+```bash
+python train.py  # ถ้าจะเทรนผ่าน command line
+python inference.py --image path/to/image.jpg --prompt "Wonyoung"
+```
+
+---
+
+## 🎓 Training Configuration
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| LoRA Rank (r) | 8 | Low-rank dimension |
+| LoRA Alpha | 16 | Scaling factor |
+| Learning Rate | 1e-4 | AdamW optimizer |
+| Batch Size | 2-8 | ขึ้นอยู่กับ VRAM |
+| Epochs | 5-10 | ขึ้นอยู่กับ dataset size |
+| Loss Function | Dice + Focal | จัดการ class imbalance |
+
+---
+
+## 🏷️ Supported Labels
+
+| Category ID | Label | Type |
+|-------------|-------|------|
+| 1 | `Wonyoung` | Identity |
+| 2 | `Wonyoung_shirt` | Possession |
+| 3 | `Yujin` | Identity |
+| 4 | `Yujin_shirt` | Possession |
+| 5 | `Gaeul` | Identity |
+| 6 | `Rei` | Identity |
+| 7 | `Liz` | Identity |
+| 8 | `Leeseo` | Identity |
+
+---
+
+## ⚠️ Notes & Limitations
+
+- **Annotation Required**: ต้องมี COCO annotations ที่สมบูรณ์ก่อนการ fine-tune
+- **GPU Memory**: Fine-tuning SAM ต้องการ VRAM อย่างน้อย 16GB (แนะนำ 24GB+)
+- **Possession Segmentation**: ความแม่นยำขึ้นอยู่กับความชัดเจนของภาพและคุณภาพของ annotation
+
+---
+
+## 📚 References
+
+- [Segment Anything (SAM)](https://github.com/facebookresearch/segment-anything)
+- [X-AnyLabeling](https://github.com/CVHub520/X-AnyLabeling)
+- [PEFT - Hugging Face](https://huggingface.co/docs/peft)
+- [LoRA Paper](https://arxiv.org/abs/2106.09685)
