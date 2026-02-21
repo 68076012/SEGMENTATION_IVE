@@ -13,14 +13,19 @@ env/
 .idea/
 .vscode/
 
-# Large media (uncomment to track sample videos)
-# *.mp4
-# *.avi
-# *.mkv
-
-# Model weights / outputs (if generated locally)
+# Model files
+*.onnx
 *.pt
 *.pth
 *.ckpt
-output/
+
 runs/
+
+# InsightFace models (auto-downloaded)
+insightface_models/
+
+# Gradio cache
+.gradio/
+
+# NOTE: Input/ and outputs/ folders are tracked per user request
+# Video files are included despite large size

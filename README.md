@@ -5,7 +5,7 @@
   <img src="https://img.shields.io/badge/CUDA-12.x-76B900?style=for-the-badge&logo=nvidia&logoColor=white" alt="CUDA">
   <img src="https://img.shields.io/badge/RTX_6000-48GB-76B900?style=for-the-badge&logo=nvidia&logoColor=white" alt="RTX 6000">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/Gradio-4.x-FF6B6B?style=for-the-badge" alt="Gradio">
+  <img src="https://img.shields.io/badge/Gradio-5.x-FF6B6B?style=for-the-badge" alt="Gradio">
 </p>
 
 <p align="center">
@@ -19,11 +19,11 @@
 - [Overview](#overview)
 - [Features](#features)
 - [Architecture](#architecture)
+- [Project Structure](#project-structure)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Hardware Requirements](#hardware-requirements)
 - [Troubleshooting](#troubleshooting)
-- [License](#license)
 
 ---
 
@@ -31,39 +31,38 @@
 
 โปรเจคนี้เป็นระบบ **Identity-Aware Segmentation** ที่ผสมผสานเทคโนโลยีสองตัวหลัก:
 
-1. **InsightFace** - สำหรับ Face Detection และ Face Recognition โดยใช้ ArcFace embeddings
-2. **SAM 3 (Segment Anything Model 3)** - สำหรับ Segmentation ที่แม่นยำตาม prompts
+1. **InsightFace (buffalo_l)** — Face Detection + ArcFace Recognition เพื่อระบุตัวตนจากใบหน้า
+2. **SAM 3 (Segment Anything Model 3)** — Segmentation ที่แม่นยำโดยใช้ Box Prompt
 
 ระบบสามารถ:
-- ระบุตัวตนของสมาชิกวง IVE จากใบหน้า
-- สร้าง segmentation mask รอบๆ บุคคลที่ต้องการ
-- รองรับการประมวลผลทั้งภาพนิ่งและวิดีโอ
-- ทำ association prompting (เช่น "เสื้อของ Wonyoung", "ผมของ Yujin")
+- ระบุตัวตนสมาชิกวง IVE ทั้ง 6 คน จากใบหน้าในภาพ
+- ขยาย Face Bounding Box เป็น Body Bounding Box แล้วส่งเข้า SAM 3
+- คืนผลลัพธ์ 3 แบบ: **Annotated**, **Overlay**, **Cutout**
+- ประมวลผลวิดีโอ frame-by-frame พร้อม IoU Tracking และ Temporal Smoothing
+- มี Web UI ผ่าน Gradio
 
 ---
 
 ## ✨ Features
 
-### 🖼️ Image Segmentation
-- อัปโหลดรูปภาพและเลือกสมาชิกที่ต้องการ segment
-- รองรับ Box Prompt และ Text Prompt
-- แสดงผล 3 รูปแบบ: Annotated, Overlay, และ Cutout
+### 👤 Identity Matching
+- Hungarian Algorithm จับคู่ใบหน้ากับสมาชิก (ป้องกัน duplicate assignment)
+- Cosine Similarity บน L2-normalized ArcFace embeddings
+- Embedding database สร้างจากรูป reference หลายรูปต่อคน (เฉลี่ย avg embedding)
 
-### 🎯 Advanced Prompting (Association)
-- Segment วัตถุที่เกี่ยวข้องกับบุคคล (เช่น "เสื้อ", "กระโปรง", "ผม")
-- ใช้ logical AND ระหว่าง person mask และ object mask
+### 🖼️ Image Segmentation
+- Face bbox → Body bbox (ขยายด้วย scale parameters ที่ปรับได้)
+- SAM 3 Box Prompt → Segmentation mask
+- Output: Annotated image, Color overlay, RGBA cutout
 
 ### 🎬 Video Processing
-- ประมวลผลวิดีโอ frame-by-frame
-- Simple tracking เพื่อรักษาความสม่ำเสมอของ identity ข้าม frames
-- Temporal smoothing ลดการกระพริบของ mask
-- Progress bar แสดงความคืบหน้า
+- Frame sampling (ทุก N frames) เพื่อประหยัดเวลา
+- `SimpleTracker` — IoU-based tracking รักษา identity ข้าม frames
+- `TemporalSmoother` — เฉลี่ย mask ย้อนหลัง 5 frames ลด flickering
 
-### ⚡ Performance Optimizations
-- `torch.compile()` สำหรับ RTX 6000
-- `bfloat16` precision ประหยัด VRAM
-- Batch inference สำหรับ video frames
-- CUDA 12.x compatibility
+### 🎨 Gradio Web UI
+- **Tab 1: Segment Member** — อัปโหลดภาพ + เลือกสมาชิก → ได้ Annotated / Segmented / Cutout
+- **Tab 2: Identify All** — แสดงทุกคนที่ detect ได้พร้อม similarity score
 
 ---
 
@@ -71,14 +70,14 @@
 
 ```mermaid
 graph TD
-    A[📥 Input Image/Video] --> B[🔍 InsightFace]
+    A[📥 Input Image/Video] --> B[🔍 InsightFace buffalo_l]
     B --> C[💾 Face Embeddings DB]
-    C --> D[🎯 Identity Matching]
-    D --> E[📦 Bounding Box]
-    E --> F[✂️ SAM 3]
+    C --> D[🎯 Hungarian Matching]
+    D --> E[📦 Face BBox → Body BBox]
+    E --> F[✂️ SAM 3 Box Prompt]
     F --> G[🎨 Segmentation Mask]
-    G --> H[📤 Output]
-    
+    G --> H[📤 Annotated / Overlay / Cutout]
+
     style A fill:#e1f5fe
     style B fill:#fff3e0
     style C fill:#e8f5e9
@@ -96,16 +95,15 @@ sequenceDiagram
     participant User
     participant GradioUI
     participant InsightFace
-    participant EmbeddingsDB
+    participant HungarianMatcher
     participant SAM3
     participant Output
 
     User->>GradioUI: Upload Image + Select Member
-    GradioUI->>InsightFace: Detect Faces
-    InsightFace->>EmbeddingsDB: Extract Embeddings
-    EmbeddingsDB->>EmbeddingsDB: Cosine Similarity Matching
-    EmbeddingsDB-->>GradioUI: Return Bounding Box
-    GradioUI->>SAM3: Box Prompt
+    GradioUI->>InsightFace: Detect Faces (buffalo_l)
+    InsightFace-->>HungarianMatcher: Face Embeddings + BBoxes
+    HungarianMatcher-->>GradioUI: Best Match BBox + Similarity
+    GradioUI->>SAM3: Body BBox Prompt
     SAM3-->>GradioUI: Segmentation Mask
     GradioUI->>Output: Annotated + Overlay + Cutout
     Output-->>User: Display Results
@@ -113,318 +111,234 @@ sequenceDiagram
 
 ---
 
+## 📁 Project Structure
+
+```
+Segmentation_Ive/
+├── 📁 Dataset/                     # รูป reference สำหรับสร้าง embeddings
+│   ├── An_Yujin/                   #   → Yujin   (16 faces)
+│   ├── Jang_Wonyoung/              #   → Wonyoung (22 faces)
+│   ├── Kim_Gaeul/                  #   → Gaeul   (18 faces)
+│   ├── Kim_Jiwon/                  #   → Liz     (25 faces)
+│   ├── Lee_Hyunseo/                #   → Leeseo  (24 faces)
+│   └── Naoi_Rei/                   #   → Rei     (17 faces)
+├── 📁 Input/                       # วิดีโอ/ภาพ input สำหรับ inference
+│   └── IVE-30s.mp4
+├── 📁 outputs/                     # ผลลัพธ์วิดีโอที่ประมวลผลแล้ว
+│   └── segmented_*.mp4
+├── 📁 sam3/                        # SAM 3 repository (git clone แยก)
+├── 📁 insightface_models/          # InsightFace model weights (auto-download)
+├── main.ipynb                      # 📌 Main notebook (entry point ทุกอย่าง)
+├── requirements.txt
+├── README.md
+└── .gitignore
+```
+
+> **หมายเหตุ:** `sam3/` และ `insightface_models/` ไม่ได้อยู่ใน git — ต้อง setup เองตาม Installation
+
+---
+
 ## 🚀 Installation
 
 ### Prerequisites
 
-- **GPU**: NVIDIA RTX 6000 (48GB VRAM) หรือเทียบเท่า
-- **CUDA**: Version 12.x
-- **Python**: 3.10 หรือสูงกว่า
-- **OS**: Linux (Ubuntu 20.04+ แนะนำ)
+- **GPU**: NVIDIA GPU ที่รองรับ CUDA 12.x (แนะนำ 16GB+ VRAM)
+- **Python**: 3.10+
+- **OS**: Linux (Ubuntu 20.04+) หรือ Windows
 
-### Step-by-Step Installation
+### Step-by-Step
 
-#### 1. สร้าง Conda Environment
+#### 1. สร้าง Virtual Environment
 
 ```bash
-# สร้าง environment ใหม่
 conda create -n sam3-face python=3.10 -y
-
-# เปิดใช้งาน environment
 conda activate sam3-face
 ```
 
 #### 2. ติดตั้ง PyTorch with CUDA 12.1
 
 ```bash
-# ติดตั้ง PyTorch 2.7.0 ที่รองรับ CUDA 12.1
 pip install torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-#### 3. Clone Repository
+#### 3. ติดตั้ง Dependencies
 
 ```bash
-# Clone โปรเจคนี้
-git clone https://github.com/yourusername/sam3-identity-segmentation.git
-cd sam3-identity-segmentation
-```
-
-#### 4. ติดตั้ง Dependencies
-
-```bash
-# ติดตั้ง dependencies ทั้งหมด
 pip install -r requirements.txt
 ```
 
-#### 5. ติดตั้ง SAM 3
+#### 4. Clone และติดตั้ง SAM 3
 
 ```bash
-# Clone SAM 3 repository
+# Clone ไว้ใน root ของโปรเจค
 git clone https://github.com/facebookresearch/sam3.git
-
-# เข้าไปใน directory
 cd sam3
-
-# ติดตั้ง SAM 3
 pip install -e ".[notebooks]"
-
-# กลับไปที่ root directory
 cd ..
 ```
 
-#### 6. HuggingFace Access Token Setup
+> SAM 3 จะถูก load จาก `./sam3/` ผ่าน `sys.path` โดยตรง — ไม่ได้ใช้ HuggingFace transformers
 
-SAM 3 ต้องการ HuggingFace token สำหรับดาวน์โหลดโมเดล:
+#### 5. HuggingFace Token (สำหรับ SAM 3 weights)
 
 ```bash
-# วิธีที่ 1: ใช้ huggingface-cli
+# วิธีที่ 1
 huggingface-cli login
 
-# วิธีที่ 2: ตั้งค่า environment variable
-export HF_TOKEN="your_huggingface_token_here"
-
-# วิธีที่ 3: ใน Python code
-from huggingface_hub import login
-login(token="your_huggingface_token_here")
+# วิธีที่ 2
+export HF_TOKEN="your_token_here"
 ```
 
-**หมายเหตุ**: คุณต้องสมัครสมาชิกและยอมรับ license ของ SAM 3 ที่ [HuggingFace](https://huggingface.co/facebook/sam3) ก่อน
+ต้องยอมรับ license ของ SAM 3 ที่ HuggingFace ก่อน (model จะ download อัตโนมัติครั้งแรกที่รัน)
 
-#### 7. Download IVE Member Embeddings
+#### 6. InsightFace Models
 
-```bash
-# สร้าง directory สำหรับเก็บ embeddings
-mkdir -p data/embeddings
-
-# ดาวน์โหลด pre-computed embeddings (ถ้ามี)
-# หรือรัน script สร้าง embeddings จาก dataset
-python scripts/create_member_embeddings.py
-```
-
-#### 8. Verify Installation
-
-```bash
-# รัน verification script
-python scripts/verify_setup.py
-```
+InsightFace จะ download `buffalo_l` อัตโนมัติลงใน `./insightface_models/` ครั้งแรกที่รัน
 
 ---
 
 ## 💻 Usage
 
-### 1. Launch Gradio UI
+### รัน Notebook
 
 ```bash
-# รัน Gradio interface
-python app.py
-
-# หรือรัน Jupyter Notebook
-jupyter notebook notebooks/sam3_identity_segmentation.ipynb
+jupyter notebook main.ipynb
 ```
 
-### 2. Access the UI
+รัน cell ตามลำดับ Section 1 → 7:
 
-เปิด browser และไปที่: `http://localhost:7860`
+| Section | เนื้อหา |
+|---------|---------|
+| **1. Environment Setup** | ติดตั้ง dependencies, clone SAM 3, login HF, verify GPU |
+| **2. Face Embedding Database** | โหลด InsightFace, สร้าง embeddings จาก `Dataset/` |
+| **3. Identity Matching** | Hungarian matching + cosine similarity functions |
+| **4. SAM 3 Engine** | โหลด SAM 3, ฟังก์ชัน `segment_by_box()` |
+| **5. Integration Pipeline** | `face_to_body_bbox()`, `segment_member()`, overlay/cutout |
+| **6. Gradio UI** | `demo.launch(share=True)` → เปิด browser |
+| **7. Video Inference** | `SimpleTracker`, `TemporalSmoother`, `process_video()` |
 
-### 3. Using the Interface
+### Gradio Web UI
 
-#### Tab 1: Image Segmentation
-1. อัปโหลดรูปภาพที่มีสมาชิก IVE
-2. เลือกสมาชิกจาก dropdown (Wonyoung, Yujin, Gaeul, Liz, Leeseo, Rei)
-3. เลือกวิธี prompting (Box หรือ Text)
-4. กด "Segment" button
-5. ดูผลลัพธ์ทั้ง 3 รูปแบบ
+หลังรัน Section 6 เปิด browser ที่ `http://127.0.0.1:7861`
 
-#### Tab 2: Advanced Prompting
-1. อัปโหลดรูปภาพ
-2. เลือกสมาชิก
-3. พิมพ์ชื่อวัตถุ (เช่น "shirt", "hair", "shoes")
-4. กด "Segment Object"
+#### Tab 1: Segment Member
+1. อัปโหลดภาพที่มีสมาชิก IVE
+2. เลือกสมาชิกจาก dropdown: `Wonyoung / Yujin / Gaeul / Liz / Leeseo / Rei`
+3. กด **Segment** → ได้ผล 3 แบบ
 
-#### Tab 3: Video Processing
-1. อัปโหลดวิดีโอ
-2. เลือกสมาชิก
-3. ปรับ frame sampling rate (1-30 fps)
-4. กด "Process Video"
-5. รอจนกว่าจะเสร็จและดาวน์โหลดผลลัพธ์
+#### Tab 2: Identify All
+1. อัปโหลดภาพ
+2. กด **Identify All** → แสดงทุกคนที่ detect ได้พร้อม similarity score
 
-### 4. API Usage (Programmatic)
+### Video Processing (Section 7)
 
 ```python
-from src.identity_segmentation import IdentityAwareSegmentation
+process_video(
+    input_path="Input/IVE-30s.mp4",
+    output_path="outputs/segmented_wonyoung.mp4",
+    target_member="Wonyoung",
+    frame_sampling=5       # ประมวลผลทุก 5 frames
+)
+```
 
-# Initialize system
-segmenter = IdentityAwareSegmentation(
-    sam3_model_size="large",  # tiny, small, base, large
-    device="cuda",
-    dtype="bfloat16"
+### Programmatic API
+
+```python
+# Segment สมาชิกจากภาพ
+overlay, cutout, annotated, mask, status = segment_member(
+    image_bgr=cv2.imread("image.jpg"),
+    member_name="Wonyoung",
+    similarity_threshold=0.45
 )
 
-# Segment image
-result = segmenter.segment_image(
-    image_path="path/to/image.jpg",
-    member_name="wonyoung",
-    prompt_type="box"
-)
-
-# Process video
-segmenter.process_video(
-    video_path="path/to/video.mp4",
-    member_name="wonyoung",
-    output_path="output.mp4",
-    frame_sampling=5
-)
+# Identify ทุกคนในภาพ
+members = identify_all_members(image_bgr, face_analyzer, embeddings_db)
+# returns: [{'name': 'Wonyoung', 'bbox': [...], 'similarity': 0.73}, ...]
 ```
 
 ---
 
 ## 🖥️ Hardware Requirements
 
-### Minimum Requirements
+### Minimum
 | Component | Specification |
 |-----------|--------------|
-| GPU | NVIDIA GPU with 16GB+ VRAM |
-| CUDA | 11.8+ |
+| GPU | NVIDIA GPU ที่รองรับ CUDA 12.x, 12GB+ VRAM |
 | RAM | 32GB |
-| Storage | 50GB SSD |
+| Storage | 20GB+ (SAM 3 weights ~5GB) |
 
-### Recommended (RTX 6000 Setup)
+### Tested Setup (RTX 6000)
 | Component | Specification |
 |-----------|--------------|
-| GPU | NVIDIA RTX 6000 (48GB VRAM) |
-| CUDA | 12.x |
-| RAM | 64GB+ |
-| Storage | 100GB NVMe SSD |
+| GPU | NVIDIA RTX 6000 Ada Generation |
+| VRAM | 47.37 GB |
+| CUDA | 12.6 |
+| Compute Capability | 8.9 (bfloat16 supported) |
 
-### Performance Benchmarks (RTX 6000)
+### Performance (RTX 6000)
 
-| Task | Resolution | Time |
-|------|------------|------|
-| Image Segmentation | 1024x1024 | ~0.5s |
-| Video Processing (1 min) | 1080p @ 5fps | ~2 min |
-| Batch Inference (32 frames) | 1024x1024 | ~8s |
+| Task | Detail | Time |
+|------|--------|------|
+| Image Segmentation | 1 member, 1 image | ~0.5s |
+| Video (30s @ 5 fps sampling) | 1080p, 1 member | ~2–3 min |
 
 ---
 
 ## 🔧 Troubleshooting
 
-### Common Issues
+### CUDA Out of Memory
 
-#### 1. CUDA Out of Memory
+SAM 3 ใช้ VRAM มาก หาก OOM ให้ลด resolution ของภาพ input หรือลด batch
+
+### SAM 3 Import Error
+
+```bash
+# ตรวจสอบว่า clone ไว้ถูกตำแหน่ง (ต้องอยู่ที่ ./sam3/ ใน root โปรเจค)
+ls sam3/sam3/__init__.py
+
+# ติดตั้งใหม่
+cd sam3 && pip install -e ".[notebooks]" && cd ..
+```
+
+### InsightFace Model Download Failed
+
+```bash
+# ลบ cache แล้วให้ download ใหม่
+rm -rf ./insightface_models/models/buffalo_l
+# รัน cell 2 ใน notebook อีกครั้ง
+```
+
+### HuggingFace Token Error
+
+```bash
+huggingface-cli login --token YOUR_TOKEN
+```
+
+### Video Codec Error
+
+```bash
+# Linux
+sudo apt-get install ffmpeg
+
+# Windows: ดาวน์โหลด ffmpeg จาก https://ffmpeg.org/
+```
+
+### Similarity Threshold ปรับแต่ง
+
+ค่า default `threshold=0.45` — ปรับเพิ่มถ้า false positive มาก, ปรับลดถ้า miss detection มาก:
 
 ```python
-# แก้ไข: ลด batch size หรือใช้ precision ต่ำกว่า
-segmenter = IdentityAwareSegmentation(
-    dtype="float16"  # หรือ "bfloat16"
-)
+members = identify_all_members(image_bgr, face_analyzer, embeddings_db, threshold=0.40)
 ```
-
-#### 2. HuggingFace Token Error
-
-```bash
-# แก้ไข: Login ใหม่
-huggingface-cli login --token YOUR_TOKEN
-
-# หรือใน Python
-from huggingface_hub import login
-login()
-```
-
-#### 3. InsightFace Model Download Failed
-
-```bash
-# แก้ไข: ลบ cache และดาวน์โหลดใหม่
-rm -rf ~/.insightface
-python -c "import insightface; insightface.model_zoo.get_model('buffalo_l')"
-```
-
-#### 4. SAM 3 Import Error
-
-```bash
-# แก้ไข: ตรวจสอบว่าติดตั้ง SAM 3 ถูกต้อง
-cd sam3
-pip install -e ".[notebooks]"
-pip install -e ".[dev]"
-```
-
-#### 5. Video Codec Error
-
-```bash
-# แก้ไข: ติดตั้ง ffmpeg
-sudo apt-get update
-sudo apt-get install ffmpeg libavcodec-dev libavformat-dev libswscale-dev
-```
-
-### Performance Optimization Tips
-
-1. **ใช้ torch.compile()** (อัตโนมัติบน RTX 6000)
-2. **ใช้ bfloat16** แทน float32
-3. **ปิด gradient computation** เมื่อ inference
-4. **ใช้ batch inference** สำหรับ video
-
----
-
-## 📁 Project Structure
-
-```
-sam3-identity-segmentation/
-├── 📁 data/
-│   ├── 📁 embeddings/          # Face embeddings ของสมาชิก IVE
-│   ├── 📁 reference_images/    # รูป reference สำหรับสร้าง embeddings
-│   └── 📁 sample_videos/       # วิดีโอตัวอย่าง
-├── 📁 notebooks/
-│   └── sam3_identity_segmentation.ipynb  # Main notebook
-├── 📁 src/
-│   ├── __init__.py
-│   ├── identity_segmentation.py    # Main class
-│   ├── face_recognition.py         # InsightFace wrapper
-│   ├── sam3_wrapper.py             # SAM 3 wrapper
-│   ├── video_processor.py          # Video processing
-│   └── utils.py                    # Utility functions
-├── 📁 scripts/
-│   ├── create_member_embeddings.py
-│   └── verify_setup.py
-├── 📁 outputs/                 # โฟลเดอร์สำหรับเก็บผลลัพธ์
-├── app.py                      # Gradio app entry point
-├── requirements.txt
-├── README.md
-└── .gitignore
-```
-
----
-
-## 🤝 Contributing
-
-ยินดีรับ contributions! กรุณาทำตามขั้นตอน:
-
-1. Fork repository
-2. สร้าง feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. เปิด Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-**Note**: SAM 3 has its own license (Apache 2.0) and requires acceptance of terms on HuggingFace.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- [Meta AI - SAM 3](https://github.com/facebookresearch/sam3)
+- [Meta AI — SAM 3](https://github.com/facebookresearch/sam3)
 - [InsightFace](https://github.com/deepinsight/insightface)
 - [Gradio](https://gradio.app/)
 - [HuggingFace](https://huggingface.co/)
-
----
-
-## 📞 Contact
-
-สำหรับคำถามหรือปัญหา กรุณาเปิด [Issue](https://github.com/yourusername/sam3-identity-segmentation/issues) บน GitHub
 
 ---
 

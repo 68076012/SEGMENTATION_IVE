@@ -53,9 +53,9 @@ imageio-ffmpeg>=0.4.9
 # =============================================================================
 # UI Framework
 # =============================================================================
-# Gradio 4.x สำหรับสร้าง web interface
+# Gradio 5.x สำหรับสร้าง web interface
 # รองรับ image/video upload, progress bars, และ interactive components
-gradio>=4.0.0,<5.0.0
+gradio>=5.0.0
 
 # =============================================================================
 # Visualization & Utilities
