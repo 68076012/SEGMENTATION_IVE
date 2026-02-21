@@ -1,0 +1,74 @@
+directories:
+  checkpoints: /root/SEGMENTATION_IVE/checkpoints
+  data: /root/SEGMENTATION_IVE/data
+  data_annotations: /root/SEGMENTATION_IVE/data/annotations
+  data_images: /root/SEGMENTATION_IVE/data/images
+  data_masks: /root/SEGMENTATION_IVE/data/masks
+  logs: /root/SEGMENTATION_IVE/logs
+  models: /root/SEGMENTATION_IVE/models
+  outputs: /root/SEGMENTATION_IVE/outputs
+  outputs_results: /root/SEGMENTATION_IVE/outputs/results
+  outputs_visualizations: /root/SEGMENTATION_IVE/outputs/visualizations
+environment:
+  bfloat16_supported: true
+  cuda_available: true
+  cuda_version: '12.1'
+  python_version: 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0]
+  pytorch_version: !!python/object/new:torch.torch_version.TorchVersion
+  - 2.5.1+cu121
+models:
+  insightface:
+    detection_size: !!python/tuple
+    - 640
+    - 640
+    detection_threshold: 0.5
+    device: GPU
+    loaded: true
+    model_name: buffalo_l
+    root_dir: models/insightface
+  sam:
+    device: cuda
+    loaded: true
+    model_id: facebook/sam3
+    model_name: sam3
+    source: Hugging Face
+    version: 3
+processing:
+  image:
+    input_size: !!python/tuple
+    - 1024
+    - 1024
+    normalize_mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    normalize_std:
+    - 0.229
+    - 0.224
+    - 0.225
+    output_size: !!python/tuple
+    - 512
+    - 512
+  insightface:
+    embeddings_dim: 512
+    max_faces: 10
+  sam:
+    multimask_output: true
+    points_per_side: 32
+    pred_iou_thresh: 0.88
+    stability_score_thresh: 0.95
+project:
+  description: Master's thesis project for Thai text-guided image segmentation
+  name: Thai Text-to-Segment System
+  version: 1.0.0
+training:
+  batch_size: 4
+  eval_interval: 1
+  gradient_accumulation_steps: 4
+  learning_rate: 0.0001
+  max_grad_norm: 1.0
+  mixed_precision: true
+  num_epochs: 50
+  save_interval: 5
+  warmup_epochs: 5
+  weight_decay: 0.0001

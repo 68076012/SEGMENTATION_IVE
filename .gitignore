@@ -24,3 +24,6 @@ env/
 *.ckpt
 output/
 runs/
+models/
+outputs/
+logs/

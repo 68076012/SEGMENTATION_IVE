@@ -211,8 +211,13 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 pip install transformers accelerate
 pip install huggingface_hub
 
-# Install SAM 3
-pip install git+https://github.com/facebookresearch/segment-anything-3.git
+# Install SAM 3 from Hugging Face (requires transformers >= 4.49.0)
+# ติดตั้ง SAM 3 จาก Hugging Face (ต้องการ transformers >= 4.49.0)
+pip install "transformers>=4.49.0" accelerate
+
+# Set Hugging Face Token for downloading models (optional but recommended)
+# ตั้งค่า Hugging Face Token สำหรับดาวน์โหลดโมเดล (ไม่บังคับแต่แนะนำ)
+export HF_TOKEN="YOUR_HF_TOKEN_HERE"
 
 # Install InsightFace
 pip install insightface onnxruntime-gpu
@@ -239,20 +244,23 @@ pip install -e .
 
 #### SAM 3 Models | โมเดล SAM 3
 
+SAM 3 is automatically downloaded from Hugging Face on first use.
+SAM 3 จะถูกดาวน์โหลดจาก Hugging Face อัตโนมัติเมื่อใช้งานครั้งแรก
+
 ```python
-# Download SAM 3 checkpoints
-from thai_text_to_segment.models.sam3_engine import download_sam3_checkpoints
+# SAM 3 is loaded directly from Hugging Face
+# SAM 3 ถูกโหลดโดยตรงจาก Hugging Face
+from transformers import Sam3Processor, Sam3Model
+import os
 
-download_sam3_checkpoints(
-    model_size="large",  # Options: "tiny", "small", "base", "large"
-    cache_dir="./checkpoints"
-)
-```
+# Set your HF Token (if not set as environment variable)
+# ตั้งค่า HF Token (หากไม่ได้ตั้งค่าเป็น environment variable)
+os.environ["HF_TOKEN"] = "YOUR_HF_TOKEN_HERE"
 
-Or manually download from HuggingFace:
-```bash
-# Using huggingface-cli
-huggingface-cli download facebook/sam3-large --local-dir ./checkpoints/sam3-large
+# Load model and processor
+# โหลดโมเดลและ processor
+processor = Sam3Processor.from_pretrained("facebook/sam3", token=os.environ["HF_TOKEN"])
+model = Sam3Model.from_pretrained("facebook/sam3", token=os.environ["HF_TOKEN"])
 ```
 
 #### InsightFace Models | โมเดล InsightFace
@@ -286,14 +294,22 @@ download_thai_models(
 ```python
 # Run verification script
 python -c "
-from thai_text_to_segment.models.sam3_engine import SAM3Engine
-from thai_text_to_segment.models.face_engine import FaceEngine
-from thai_text_to_segment.models.text_engine import ThaiTextEngine
+from transformers import Sam3Processor, Sam3Model
+import torch
 
-print('✓ SAM 3 Engine loaded successfully')
-print('✓ Face Engine loaded successfully')
-print('✓ Thai Text Engine loaded successfully')
-print('All components installed correctly!')
+print('Checking SAM 3 installation...')
+try:
+    processor = Sam3Processor.from_pretrained('facebook/sam3')
+    model = Sam3Model.from_pretrained('facebook/sam3')
+    print('✓ SAM 3 loaded successfully from Hugging Face')
+except Exception as e:
+    print(f'⚠ Error loading SAM 3: {e}')
+
+print('\\nChecking PyTorch installation...')
+print(f'✓ PyTorch version: {torch.__version__}')
+print(f'✓ CUDA available: {torch.cuda.is_available()}')
+
+print('\\nAll components checked!')
 "
 ```
 
@@ -306,26 +322,45 @@ print('All components installed correctly!')
 #### Level 1: Basic Segmentation | ระดับ 1: การตัดแบ่งพื้นฐาน
 
 ```python
-from thai_text_to_segment.models.sam3_engine import SAM3Engine
+from transformers import Sam3Processor, Sam3Model
 from PIL import Image
+import torch
 
-# Initialize engine
-sam_engine = SAM3Engine(model_size="large")
+# Load SAM 3 from Hugging Face
+# โหลด SAM 3 จาก Hugging Face
+processor = Sam3Processor.from_pretrained("facebook/sam3")
+model = Sam3Model.from_pretrained("facebook/sam3")
+
+# Move to GPU if available
+# ย้ายไป GPU หากมี
+model = model.to("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load image
-image = Image.open("example.jpg")
+image = Image.open("example.jpg").convert("RGB")
 
 # Segment using Thai text
-results = sam_engine.segment_by_text(
-    image=image,
-    text_prompt="ผู้ชายคนนั้น",  # "that man"
-    box_threshold=0.3,
-    text_threshold=0.25
-)
+# ตัดแบ่งโดยใช้ข้อความภาษาไทย
+inputs = processor(images=image, text="ผู้ชาย", return_tensors="pt")
+inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
-# Get segmentation mask
-mask = results.masks[0]
-scores = results.scores
+# Run inference
+with torch.no_grad():
+    outputs = model(**inputs)
+
+# Post-process results
+results = processor.post_process_instance_segmentation(
+    outputs,
+    threshold=0.5,
+    mask_threshold=0.5,
+    target_sizes=inputs.get("original_sizes").tolist()
+)[0]
+
+# Get segmentation masks
+masks = results["masks"]  # Binary masks
+boxes = results["boxes"]  # Bounding boxes
+scores = results["scores"]  # Confidence scores
+
+print(f"Found {len(masks)} objects")
 ```
 
 #### Level 2: Identity-Aware Segmentation | ระดับ 2: การตัดแบ่งรับรู้ตัวตน
