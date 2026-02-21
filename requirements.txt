@@ -3,15 +3,32 @@
 # =============================================================================
 # สำหรับ RTX 6000 (48GB VRAM) - CUDA 12.x Compatible
 # =============================================================================
+#
+# ⚠️ IMPORTANT: ต้องติดตั้ง build dependencies ก่อน:
+#   Ubuntu/Debian: sudo apt-get install -y cmake python3-dev build-essential
+#   
+#   เหตุผล: insightface ไม่มี pre-built wheel สำหรับ Linux
+#   ต้อง compile จาก source ซึ่งต้องใช้ cmake และ Python headers
+#
+# 💡 แนะนำ: ใช้ ./setup.sh สำหรับติดตั้งอัตโนมัติบนเครื่องใหม่
+# =============================================================================
+
+# =============================================================================
+# Build Tools (ติดตั้งก่อน)
+# =============================================================================
+# setuptools<70: SAM 3 ใช้ pkg_resources ซึ่งถูกลบออกใน setuptools v70+
+setuptools<70
+wheel
 
 # =============================================================================
 # Core ML Framework - PyTorch 2.7+ with CUDA 12.x support
 # =============================================================================
-# torch 2.7.0 รองรับ CUDA 12.x และมี torch.compile สำหรับ optimization
+# PyTorch รองรับ CUDA 12.x และมี torch.compile สำหรับ optimization
 # ใช้ bfloat16 ได้บน RTX 6000 (compute capability 8.9)
-torch==2.7.0
-torchvision>=0.18.0
-torchaudio>=2.7.0
+# ติดตั้งด้วย: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+torch>=2.5.0
+torchvision>=0.20.0
+torchaudio>=2.5.0
 
 # =============================================================================
 # Face Recognition & Detection
@@ -126,8 +143,8 @@ ipython>=8.22.0
 #    conda create -n sam3-face python=3.10
 #    conda activate sam3-face
 #
-# 2. ติดตั้ง PyTorch with CUDA 12.1:
-#    pip install torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# 2. ติดตั้ง PyTorch with CUDA 12.6:
+#    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 #
 # 3. ติดตั้ง requirements:
 #    pip install -r requirements.txt

@@ -128,13 +128,15 @@ Segmentation_Ive/
 │   └── segmented_*.mp4
 ├── 📁 sam3/                        # SAM 3 repository (git clone แยก)
 ├── 📁 insightface_models/          # InsightFace model weights (auto-download)
+├── 📁 scripts/                     # Setup scripts
+│   └── setup.sh                    #   → Auto-setup script สำหรับเครื่องใหม่
 ├── main.ipynb                      # 📌 Main notebook (entry point ทุกอย่าง)
-├── requirements.txt
-├── README.md
+├── requirements.txt                # Python dependencies (มี setuptools<70)
+├── README.md                       # เอกสารนี้
 └── .gitignore
 ```
 
-> **หมายเหตุ:** `sam3/` และ `insightface_models/` ไม่ได้อยู่ใน git — ต้อง setup เองตาม Installation
+> **หมายเหตุ:** `sam3/`, `insightface_models/`, และ `.venv/` ไม่ได้อยู่ใน git — ต้อง setup เองตาม Installation
 
 ---
 
@@ -146,28 +148,77 @@ Segmentation_Ive/
 - **Python**: 3.10+
 - **OS**: Linux (Ubuntu 20.04+) หรือ Windows
 
-### Step-by-Step
+### ⚡ Quick Start (Recommended)
 
-#### 1. สร้าง Virtual Environment
+สำหรับเครื่องใหม่ ใช้ script นี้เพื่อติดตั้งอัตโนมัติ:
 
 ```bash
+# 1. Clone repository (ถ้ายังไม่มี)
+git clone <your-repo-url>
+cd SEGMENTATION_IVE
+
+# 2. รัน setup script
+chmod +x scripts/setup.sh
+./setup.sh
+```
+
+Script จะทำการ:
+- ✅ ติดตั้ง system dependencies (cmake, python3-dev, ffmpeg, etc.)
+- ✅ สร้าง Python virtual environment
+- ✅ ติดตั้ง PyTorch with CUDA 12.1
+- ✅ ติดตั้ง Python dependencies ทั้งหมด
+- ✅ Clone และติดตั้ง SAM 3
+- ✅ ตรวจสอบการติดตั้ง
+
+### 🛠️ Manual Installation
+
+หากต้องการติดตั้งเอง ทำตามขั้นตอนนี้:
+
+#### 1. ติดตั้ง System Dependencies (Ubuntu/Debian)
+
+**⚠️ สำคัญมาก:** `insightface` ต้องการ compile C++ extensions จำเป็นต้องติดตั้ง:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y cmake python3-dev python3-pip python3-venv python3.10-venv build-essential ffmpeg libgl1 git
+```
+
+| Package | เหตุผล |
+|---------|--------|
+| `cmake` | ใช้ build C++ extensions ของ insightface |
+| `python3-dev` | Python header files สำหรับ compile C modules |
+| `python3.10-venv` | สำหรับสร้าง Python 3.10 virtual environment |
+| `build-essential` | GCC, G++ compilers |
+| `ffmpeg` | สำหรับประมวลผลวิดีโอ |
+| `libgl1` | OpenCV ต้องใช้ |
+
+#### 2. สร้าง Virtual Environment
+
+```bash
+# ใช้ venv (แนะนำ)
+python3 -m venv .venv
+source .venv/bin/activate
+
+# หรือใช้ conda
 conda create -n sam3-face python=3.10 -y
 conda activate sam3-face
 ```
 
-#### 2. ติดตั้ง PyTorch with CUDA 12.1
+#### 3. ติดตั้ง PyTorch with CUDA 12.6
 
 ```bash
-pip install torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 ```
 
-#### 3. ติดตั้ง Dependencies
+#### 4. ติดตั้ง Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-#### 4. Clone และติดตั้ง SAM 3
+**หมายเหตุ:** `insightface` อาจใช้เวลา compile 5-10 นาที เนื่องจากไม่มี pre-built wheel สำหรับ Linux
+
+#### 5. Clone และติดตั้ง SAM 3
 
 ```bash
 # Clone ไว้ใน root ของโปรเจค
@@ -285,6 +336,43 @@ members = identify_all_members(image_bgr, face_analyzer, embeddings_db)
 ---
 
 ## 🔧 Troubleshooting
+
+### ❌ Failed to build installable wheels for insightface
+
+**สาเหตุ:** ขาด build dependencies (cmake, python3-dev)
+
+**วิธีแก้:**
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y cmake python3-dev build-essential
+
+# แล้วลองติดตั้งใหม่
+pip install insightface>=0.7.3
+```
+
+**เช็คว่าติดตั้งครบไหม:**
+```bash
+which cmake          # ควรแสดง path
+python3-config --includes  # ควรแสดง Python headers path
+```
+
+---
+
+### ❌ ModuleNotFoundError: No module named 'pkg_resources' (SAM 3 Import Error)
+
+**สาเหตุ:** SAM 3 ใช้ `pkg_resources` ซึ่งถูกลบออกจาก `setuptools` v70+
+
+**วิธีแก้:**
+```bash
+# Downgrade setuptools
+pip install "setuptools<70"
+
+# แล้วลอง import SAM 3 ใหม่
+python3 -c "from sam3 import build_sam3_image_model; print('OK')"
+```
+
+**ป้องกัน:** ใช้ `setup.sh` หรือติดตั้ง `setuptools<70` ตั้งแต่เริ่มต้น
 
 ### CUDA Out of Memory
 

@@ -29,3 +29,4 @@ insightface_models/
 
 # NOTE: Input/ and outputs/ folders are tracked per user request
 # Video files are included despite large size
+sam3/
